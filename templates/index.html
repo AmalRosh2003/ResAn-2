@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResAn</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            const layout = document.querySelector('.layout');
+            const result = document.querySelector('.result');
+            if (result) layout.classList.add('has-results');
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>ResAn</h1>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}{% for message in messages %}<div class="alert">{{ message }}</div>{% endfor %}{% endif %}
+        {% endwith %}
+        <div class="layout">
+            <div class="form-panel">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="filter" name="filter" placeholder="Filter skills (e.g., python, react, java)" value="{{ request.form.get('filter', '') }}">
+                    </div>
+                    <button type="submit">Analyze Resume</button>
+                </form>
+            </div>
+            {% if data %}
+        <div class="result">
+            <div class="section contact-info">
+                <h3>📞 Contact Information</h3>
+                <div class="contact-details">
+                    <div class="contact-item">
+                        <span class="contact-label">📱 Phone:</span>
+                        <span class="contact-value">{{ data.phone }}</span>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-label">📧 Email:</span>
+                        <span class="contact-value">{{ data.email }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="section education">
+                <h3>🎓 Educational Qualifications</h3>
+                {% if data.education %}
+                    <div class="education-container">
+                        {% for edu in data.education %}
+                            <div class="education-item">
+                                <div class="education-degree">{{ edu.degree }}</div>
+                                {% if edu.institution %}<div class="education-institution">{{ edu.institution }}</div>{% endif %}
+                                {% if edu.year %}<div class="education-year">{{ edu.year }}</div>{% endif %}
+                                {% if edu.gpa %}<div class="education-gpa">{{ edu.gpa }}</div>{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% elif data.qualifications %}
+                    <div class="qualifications-container">
+                        {% for qual in data.qualifications %}
+                            <div class="qualification-item">{{ qual }}</div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-education">No educational qualifications found in the resume</p>
+                {% endif %}
+            </div>
+            <div class="section languages">
+                <h3>🌍 Languages</h3>
+                {% if data.languages %}
+                    <div class="languages-container">
+                        {% for language in data.languages %}
+                            <span class="language-tag">{{ language }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-languages">No languages explicitly mentioned in the resume</p>
+                {% endif %}
+            </div>
+            <div class="section skills-only">
+                <h3>🛠️ Skills & Qualities by Section ({{ data.total_skills }})</h3>
+                <p class="section-description">Skills and qualities extracted from specific sections with relevant headings</p>
+                {% if data.skills_by_section %}
+                    {% for section_name, skills_list in data.skills_by_section.items() %}
+                        <div class="skills-section">
+                            <h4 class="section-heading">{{ section_name }}</h4>
+                            <div class="skills-container">
+                                <div class="skills-grid">
+                                    {% for skill in skills_list %}
+                                        <span class="skill-tag" title="Found in: {{ section_name }}">{{ skill }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="skills-info">
+                        <p><small>💡 Skills are extracted only from sections with headings containing words like "skills", "qualities", "competencies", etc.</small></p>
+                    </div>
+                {% elif data.skills %}
+                    <div class="skills-container">
+                        <div class="skills-grid">
+                            {% for skill in data.skills %}
+                                <span class="skill-tag" title="{% if data.skills_with_context and skill in data.skills_with_context %}Found in: {{ data.skills_with_context[skill]|join(', ') }}{% else %}Found in resume text{% endif %}">{{ skill }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="skills-info">
+                            <p><small>💡 Skills are extracted only from the dedicated Skills section of the resume</small></p>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="no-skills">No skills explicitly mentioned in sections with relevant headings</p>
+                {% endif %}
+            </div>
+            {% if data.filter_keywords %}
+                {% if data.missing_keywords %}
+                <div class="section warning">
+                    <h3>❌ Keywords Not Found</h3>
+                    <p>The following keywords were not found anywhere in the resume:</p>
+                    <div class="tags">
+                        {% for keyword in data.missing_keywords %}<span class="tag missing">{{ keyword }}</span>{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if data.found_keywords %}
+                <div class="section success">
+                    <h3>✅ Keywords Found</h3>
+                    <p>The following keywords were found in the resume:</p>
+                    <div class="tags">
+                        {% for keyword in data.found_keywords %}<span class="tag found">{{ keyword }}</span>{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if data.filtered_skills %}
+                <div class="section">
+                    <h3>🎯 Matching Skills ({{ data.filtered_skills|length }})</h3>
+                    <p>Skills that contain the searched keywords:</p>
+                    <div class="tags">
+                        {% for skill in data.filtered_skills %}<span class="tag match">{{ skill }}</span>{% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if not data.found_keywords and data.filter_keywords %}
+                <div class="section warning">
+                    <h3>⚠️ No Keywords Found</h3>
+                    <p>None of the searched keywords were found in the resume. Try different keywords or check the spelling.</p>
+                </div>
+                {% endif %}
+            {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html> 
